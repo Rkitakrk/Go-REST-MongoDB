@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
 
@@ -17,22 +17,27 @@ type ActionModel struct {
 	DB *mongo.Client
 }
 
+type Location struct {
+	X int `json:"x,omitempty" bson:"x,omitempty`
+	Y int `json:"y,omitempty" bson:"y,omitempty`
+	Z int `json:"z,omitempty" bson:"z,omitempty`
+}
+
 type Action struct {
 	ID     primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	UserID int                `json:"userID,omitempty" bson:"userID,omitempty`
 	GameID int                `json:"gameID,omitempty" bson:"gameID,omitempty`
+	Action Location
 }
 
 type Application struct {
 	actionsql *ActionModel
 }
 
-func (m *ActionModel) Insert(userID, gameID int) (interface{}, error) {
-	var action Action
-	action.UserID = userID
-	action.GameID = gameID
+func (m *ActionModel) Insert(a *Action) (interface{}, error) {
+
 	collection := m.DB.Database("game").Collection("action")
-	insertResult, err := collection.InsertOne(context.TODO(), action)
+	insertResult, err := collection.InsertOne(context.TODO(), a)
 	if err != nil {
 		return 0, err
 	}
@@ -41,22 +46,11 @@ func (m *ActionModel) Insert(userID, gameID int) (interface{}, error) {
 }
 
 func (app *Application) CreateActionEndpoint(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
 
-	UserID, err := strconv.Atoi(r.Form.Get("UserID"))
-	if err != nil {
-		fmt.Println(err)
-	}
-	GameID, err := strconv.Atoi(r.Form.Get("GameID"))
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	id, err := app.actionsql.Insert(UserID, GameID)
+	w.Header().Set("content-type", "application/json")
+	var action Action
+	_ = json.NewDecoder(r.Body).Decode(&action)
+	id, err := app.actionsql.Insert(&action)
 	if err != nil {
 		fmt.Println(err)
 	}
